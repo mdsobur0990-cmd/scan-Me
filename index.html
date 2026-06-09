@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pro Scanner AI</title>
     
+    <!-- TensorFlow & AI Models -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier@1.2.4"></script>
@@ -12,183 +13,175 @@
     <style>
         :root { 
             --primary: #2563eb; 
-            --bg: #f1f5f9; 
+            --bg: #f8fafc; 
             --card: #ffffff; 
-            --text: #0f172a;
-            --text-light: #64748b;
-            --success: #16a34a; 
-            --danger: #dc2626; 
+            --text: #1e293b;
+            --success: #22c55e; 
+            --danger: #ef4444; 
             --border: #e2e8f0;
         }
 
         body { 
-            font-family: -apple-system, system-ui, sans-serif; 
-            margin: 0; 
-            background: var(--bg); 
-            color: var(--text);
-            overflow: hidden; 
-            touch-action: manipulation;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0; background: var(--bg); color: var(--text);
+            overflow: hidden; touch-action: manipulation;
         }
 
         /* Loading Screen */
         #loading-overlay { 
-            position: fixed; inset: 0; background: #ffffff; z-index: 1000; 
+            position: fixed; inset: 0; background: #fff; z-index: 1000; 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
         }
-        .spinner { border: 4px solid var(--border); border-left-color: var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader { width: 48px; height: 48px; border: 5px solid var(--border); border-bottom-color: var(--primary); border-radius: 50%; animation: rotation 1s linear infinite; }
+        @keyframes rotation { 0% { transform: rotate(0deg) } 100% { transform: rotate(360deg) } }
+
+        /* Navigation */
+        .nav-bar { 
+            position: fixed; bottom: 0; width: 100%; height: 80px;
+            background: #fff; display: flex; border-top: 1px solid var(--border); 
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; color: #94a3b8; font-weight: 600; cursor: pointer; }
+        .nav-item.active { color: var(--primary); }
+        .nav-item i { font-size: 22px; margin-bottom: 4px; font-style: normal; }
 
         /* Header */
-        .header { background: var(--card); padding: 15px; text-align: center; font-weight: 800; font-size: 1.1rem; border-bottom: 1px solid var(--border); }
+        .header { background: #fff; padding: 16px; text-align: center; font-weight: 800; border-bottom: 1px solid var(--border); font-size: 18px; letter-spacing: -0.5px; }
 
-        /* Main View Container */
-        .view { height: calc(100vh - 135px); overflow-y: auto; position: relative; }
+        /* Screens */
+        .screen { height: calc(100vh - 145px); overflow-y: auto; padding: 15px; box-sizing: border-box; }
+        .hidden { display: none !important; }
 
-        /* Scan Screen Styles */
-        #scan-screen { overflow: hidden; background: var(--bg); }
-        .camera-box { 
-            width: 90%; height: 50vh; margin: 15px auto; 
-            background: #000; border-radius: 24px; overflow: hidden;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
-            position: relative; border: 4px solid var(--card);
+        /* Video Containers */
+        .video-wrapper { 
+            width: 100%; border-radius: 24px; overflow: hidden; 
+            background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
+            position: relative; border: 4px solid #fff;
         }
+        #v-scan-container { height: 45vh; margin-bottom: 20px; }
+        #v-train-container { height: 320px; margin: 15px 0; } /* Larger Preview on Add Page */
         video { width: 100%; height: 100%; object-fit: cover; }
 
-        /* Real-time Info Card */
-        .info-card {
-            width: 85%; margin: 0 auto; background: var(--card); 
-            border-radius: 20px; padding: 20px; box-sizing: border-box;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-            transform: translateY(20px); opacity: 0; transition: 0.3s all ease;
-            border: 1px solid var(--border);
+        /* Result Card */
+        #result-card {
+            background: #fff; border-radius: 20px; padding: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1); border: 1px solid var(--border);
+            text-align: center; transform: scale(0.9); opacity: 0; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        .info-card.active { transform: translateY(0); opacity: 1; }
-        
-        .price-row { display: flex; justify-content: space-between; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
-        .price-box { text-align: center; flex: 1; }
-        .price-label { font-size: 11px; color: var(--text-light); text-transform: uppercase; font-weight: bold; }
-        .price-val { font-size: 1.4rem; font-weight: 800; }
+        #result-card.visible { transform: scale(1); opacity: 1; }
+        .price-grid { display: flex; justify-content: space-around; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border); }
+        .price-item b { display: block; font-size: 12px; color: #64748b; text-transform: uppercase; }
+        .price-item span { font-size: 22px; font-weight: 900; }
 
-        /* Controls */
-        .controls { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; }
-        .btn-scan { 
-            background: var(--primary); color: white; border: none; 
-            padding: 15px 40px; border-radius: 50px; font-weight: 800; font-size: 1rem;
-            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4);
-            transition: 0.1s; cursor: pointer;
+        /* Round Scan Button */
+        .scan-trigger-container { position: absolute; bottom: 30px; left: 0; right: 0; display: flex; justify-content: center; }
+        .btn-round-scan {
+            width: 85px; height: 85px; border-radius: 50%; background: var(--primary);
+            border: 6px solid #fff; box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4);
+            color: #fff; font-weight: 800; font-size: 14px; cursor: pointer;
+            transition: 0.2s; display: flex; align-items: center; justify-content: center;
         }
-        .btn-scan:active { transform: scale(0.95); background: #1d4ed8; }
+        .btn-round-scan:active { transform: scale(0.9); background: #1d4ed8; }
 
-        /* Forms & List */
-        .container { padding: 20px; }
-        .form-card { background: var(--card); padding: 20px; border-radius: 20px; border: 1px solid var(--border); }
+        /* Forms & Buttons */
+        .card { background: #fff; border-radius: 24px; padding: 20px; border: 1px solid var(--border); }
         input { 
-            width: 100%; padding: 14px; margin: 8px 0; border: 1px solid var(--border); 
-            border-radius: 12px; background: #f8fafc; font-size: 16px; box-sizing: border-box;
+            width: 100%; padding: 15px; margin: 8px 0; border: 1px solid var(--border); 
+            border-radius: 14px; background: #f1f5f9; font-size: 16px; box-sizing: border-box; outline: none;
         }
-        .btn-block { width: 100%; padding: 16px; border-radius: 14px; border: none; font-weight: bold; margin-top: 10px; cursor: pointer; }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-success { background: var(--success); color: white; }
+        input:focus { border-color: var(--primary); }
+        .btn { 
+            width: 100%; padding: 16px; border-radius: 16px; border: none; 
+            font-weight: 700; font-size: 16px; cursor: pointer; margin-top: 10px; transition: 0.2s;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-train { background: #6366f1; color: #fff; }
+        .btn-train.active { animation: pulse 1s infinite; background: #4f46e5; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
         /* Inventory List */
-        .inv-item { 
-            background: var(--card); padding: 16px; border-radius: 16px; margin-bottom: 12px;
-            display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid var(--border);
+        .item-row { 
+            background: #fff; padding: 16px; border-radius: 18px; margin-bottom: 12px;
+            display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border);
         }
-        .inv-details b { font-size: 1rem; color: var(--text); }
-        .inv-details p { margin: 4px 0 0; font-size: 13px; color: var(--text-light); }
-        .action-btns { display: flex; gap: 8px; }
-        .btn-small { padding: 8px 12px; border-radius: 8px; border: none; font-size: 11px; font-weight: bold; }
-        .edit-btn { background: #eff6ff; color: var(--primary); }
-        .del-btn { background: #fef2f2; color: var(--danger); }
-
-        /* Nav Bar */
-        .nav-bar { 
-            position: fixed; bottom: 0; width: 100%; height: 75px;
-            background: var(--card); display: flex; border-top: 1px solid var(--border); 
-            padding-bottom: 10px;
-        }
-        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; color: var(--text-light); font-weight: 500; }
-        .nav-item.active { color: var(--primary); font-weight: bold; }
-        .nav-item i { font-size: 20px; margin-bottom: 4px; font-style: normal; }
-
-        .hidden { display: none !important; }
+        .item-info b { font-size: 16px; color: var(--text); }
+        .item-info p { margin: 4px 0 0; font-size: 13px; color: #64748b; }
+        .item-actions { display: flex; gap: 8px; }
+        .btn-small { padding: 8px 12px; border-radius: 10px; border: none; font-size: 11px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
     <div id="loading-overlay">
-        <div class="spinner"></div>
-        <p style="margin-top:15px; font-weight: 600; color: var(--text-light);">Loading AI Engine...</p>
+        <div class="loader"></div>
+        <p style="margin-top:20px; font-weight:700; color:#64748b;">AI EYES INITIALIZING...</p>
     </div>
 
     <div class="header">PRO SCANNER AI</div>
 
-    <!-- SCAN SCREEN -->
-    <div id="scan-screen" class="view">
-        <div class="camera-box">
+    <!-- SCAN PAGE -->
+    <div id="scan-screen" class="screen">
+        <div class="video-wrapper" id="v-scan-container">
             <video id="v-scan" autoplay playsinline muted></video>
         </div>
 
-        <div id="info-card" class="info-card">
-            <div id="d-name" style="font-size: 1.2rem; font-weight: 800;">Product Name</div>
-            <div class="price-row">
-                <div class="price-box">
-                    <div class="price-label">Buy Price</div>
-                    <div class="price-val" style="color: var(--danger);">$<span id="d-buy">0</span></div>
+        <div id="result-card">
+            <div id="d-name" style="font-size: 20px; font-weight: 800; color: var(--primary);">PRODUCT NAME</div>
+            <div class="price-grid">
+                <div class="price-item">
+                    <b>Buy Price</b>
+                    <span id="d-buy" style="color: var(--danger);">$0</span>
                 </div>
-                <div class="price-box" style="border-left: 1px solid var(--border);">
-                    <div class="price-label">Sell Price</div>
-                    <div class="price-val" style="color: var(--success);">$<span id="d-sell">0</span></div>
+                <div class="price-item" style="border-left: 1px solid var(--border); padding-left: 20px;">
+                    <b>Sell Price</b>
+                    <span id="d-sell" style="color: var(--success);">$0</span>
                 </div>
             </div>
         </div>
 
-        <div class="controls">
-            <p id="status-msg" style="margin-bottom: 10px; font-size: 13px; color: var(--text-light); font-weight: 600;">Ready to Scan</p>
-            <button class="btn-scan" id="hold-scan-btn">HOLD TO SCAN</button>
+        <div class="scan-trigger-container">
+            <button class="btn-round-scan" id="hold-scan-btn">SCAN</button>
         </div>
     </div>
 
-    <!-- ADD SCREEN -->
-    <div id="add-screen" class="view container hidden">
-        <div class="form-card">
-            <h3 id="form-title" style="margin-top:0;">Add Product</h3>
+    <!-- ADD PAGE -->
+    <div id="add-screen" class="screen hidden">
+        <div class="card">
+            <h3 id="form-title" style="margin-top:0">Add New Product</h3>
             <input type="text" id="i-name" placeholder="Item Name">
-            <div style="display:flex; gap:10px;">
-                <input type="number" id="i-buy" placeholder="Buy Price $">
-                <input type="number" id="i-sell" placeholder="Sell Price $">
+            <div style="display:flex; gap:10px">
+                <input type="number" id="i-buy" placeholder="Buy $">
+                <input type="number" id="i-sell" placeholder="Sell $">
+            </div>
+
+            <div class="video-wrapper" id="v-train-container">
+                <video id="v-train" autoplay playsinline muted></video>
             </div>
             
-            <div style="border-radius:15px; overflow:hidden; height:140px; margin: 10px 0; border: 2px solid var(--bg);">
-                <video id="v-train" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
-            </div>
-            
-            <button class="btn-block btn-primary" id="t-btn" style="background: #6366f1;">HOLD TO TRAIN AI</button>
-            <button onclick="saveProduct()" class="btn-block btn-success">SAVE TO INVENTORY</button>
-            <button onclick="cancelEdit()" id="cancel-btn" class="btn-block hidden" style="background:#94a3b8; color:white;">CANCEL EDIT</button>
+            <button class="btn btn-train" id="t-btn">HOLD TO TRAIN AI</button>
+            <button class="btn btn-primary" onclick="saveProduct()" style="background:#1e293b">SAVE PRODUCT</button>
+            <button id="cancel-edit" class="btn hidden" onclick="resetForm()" style="background:#94a3b8; color:#fff">CANCEL</button>
         </div>
     </div>
 
-    <!-- LIST SCREEN -->
-    <div id="list-screen" class="view container hidden">
-        <h3 style="margin: 0 0 15px 5px;">Inventory</h3>
+    <!-- ITEMS PAGE -->
+    <div id="list-screen" class="screen hidden">
+        <h3 style="margin: 0 0 15px 10px">Inventory</h3>
         <div id="inv-list"></div>
     </div>
 
     <!-- NAVIGATION -->
     <div class="nav-bar">
-        <div class="nav-item active" onclick="tab('scan-screen', this)"><i>📷</i>Scan</div>
-        <div class="nav-item" onclick="tab('add-screen', this)"><i>➕</i>Add</div>
-        <div class="nav-item" onclick="tab('list-screen', this)"><i>📦</i>Items</div>
+        <div class="nav-item active" onclick="tab('scan-screen', this)"><i>📷</i><span>Scan</span></div>
+        <div class="nav-item" onclick="tab('add-screen', this)"><i>➕</i><span>Add</span></div>
+        <div class="nav-item" onclick="tab('list-screen', this)"><i>📦</i><span>Items</span></div>
     </div>
 
     <script>
         let classifier, net, inventory = {}, isTraining = false, isScanning = false, scanActive = true;
         let editingKey = null;
 
-        const dbName = "ProScanner_WhiteDB", storeName = "MainStore";
+        const dbName = "ProScanner_V3_DB", storeName = "DataStore";
 
         async function accessDB(mode) {
             return new Promise((resolve) => {
@@ -220,59 +213,59 @@
                 startCam(document.getElementById('v-scan'));
                 loop();
             } catch (e) {
-                document.getElementById('loading-overlay').innerHTML = "Camera permission required.";
+                alert("Camera access is required for AI scanning.");
             }
         }
 
         async function startCam(v) {
-            if (v.srcObject) return; 
+            if (v.srcObject) return;
             try {
                 const s = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" }, 
-                    audio: false 
+                    video: { facingMode: "environment" }, audio: false 
                 });
                 v.srcObject = s;
-            } catch (e) { console.log("Cam error"); }
+            } catch (e) { console.error("Camera Error"); }
         }
 
         function tab(id, el) {
             scanActive = (id === 'scan-screen');
-            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             document.getElementById(id).classList.remove('hidden');
             el.classList.add('active');
             
             if(id === 'add-screen') startCam(document.getElementById('v-train'));
-            if(id === 'scan-screen') { startCam(document.getElementById('v-scan')); resetScanUI(); }
+            if(id === 'scan-screen') { startCam(document.getElementById('v-scan')); closeResult(); }
             if(id === 'list-screen') renderList();
         }
 
-        function resetScanUI() {
-            document.getElementById('info-card').classList.remove('active');
-            document.getElementById('status-msg').innerText = "Ready to Scan";
+        function closeResult() {
+            document.getElementById('result-card').classList.remove('visible');
         }
 
-        // --- SCAN HOLD LOGIC ---
+        // --- SCAN LOGIC ---
         const scanBtn = document.getElementById('hold-scan-btn');
-        const onScanStart = (e) => { e.preventDefault(); isScanning = true; resetScanUI(); };
-        const onScanEnd = () => { isScanning = false; };
+        const scanStart = (e) => { e.preventDefault(); isScanning = true; closeResult(); };
+        const scanEnd = () => { isScanning = false; };
 
-        scanBtn.onmousedown = onScanStart; scanBtn.ontouchstart = onScanStart;
-        window.onmouseup = onScanEnd; window.ontouchend = onScanEnd;
+        scanBtn.onmousedown = scanStart; scanBtn.ontouchstart = scanStart;
+        window.onmouseup = scanEnd; window.ontouchend = scanEnd;
 
-        // --- TRAINING HOLD LOGIC ---
+        // --- TRAINING LOGIC ---
         const tBtn = document.getElementById('t-btn');
-        const onTrainStart = (e) => {
+        const trainStart = (e) => {
             e.preventDefault();
-            if(!document.getElementById('i-name').value) return alert("Enter name first");
+            const name = document.getElementById('i-name').value;
+            if(!name) return alert("Please enter product name first");
             isTraining = true;
-            tBtn.innerText = "TRAINING... KEEP MOVING";
+            tBtn.classList.add('active');
+            tBtn.innerText = "TRAINING...";
             trainLoop();
         };
-        const onTrainEnd = () => { isTraining = false; tBtn.innerText = "HOLD TO TRAIN AI"; };
+        const trainEnd = () => { isTraining = false; tBtn.classList.remove('active'); tBtn.innerText = "HOLD TO TRAIN AI"; };
 
-        tBtn.onmousedown = onTrainStart; tBtn.ontouchstart = onTrainStart;
-        window.onmouseup = onTrainEnd; window.ontouchend = onTrainEnd;
+        tBtn.onmousedown = trainStart; tBtn.ontouchstart = trainStart;
+        window.onmouseup = trainEnd; window.ontouchend = trainEnd;
 
         async function trainLoop() {
             if(!isTraining) return;
@@ -281,14 +274,14 @@
             setTimeout(trainLoop, 100);
         }
 
-        // --- DATABASE OPERATIONS ---
+        // --- INVENTORY & DATABASE ---
         async function saveProduct() {
             const name = document.getElementById('i-name').value.trim();
             const buy = document.getElementById('i-buy').value;
             const sell = document.getElementById('i-sell').value;
 
-            if(!name || !buy || !sell) return alert("Missing info");
-            if(classifier.getNumClasses() === 0) return alert("Train AI first");
+            if(!name || !buy || !sell) return alert("All fields are required");
+            if(classifier.getNumClasses() === 0) return alert("AI must be trained for this item first");
 
             inventory[name] = { buy, sell };
             const store = await accessDB("readwrite");
@@ -301,24 +294,24 @@
             });
             store.put(JSON.stringify(brainObj), "brain");
 
-            alert("Product Saved!");
-            cancelEdit();
+            alert("Product successfully saved!");
+            resetForm();
             tab('list-screen', document.querySelectorAll('.nav-item')[2]);
         }
 
         function renderList() {
             const list = document.getElementById('inv-list');
-            const keys = Object.keys(inventory);
-            list.innerHTML = keys.length === 0 ? '<p style="text-align:center; color:#94a3b8; margin-top:40px;">No items in database</p>' : 
-                keys.map(k => `
-                    <div class="inv-item">
-                        <div class="inv-details">
+            const items = Object.keys(inventory);
+            list.innerHTML = items.length === 0 ? '<p style="text-align:center;color:#94a3b8;margin-top:50px">No items saved yet.</p>' :
+                items.map(k => `
+                    <div class="item-row">
+                        <div class="item-info">
                             <b>${k}</b>
                             <p>Buy: $${inventory[k].buy} | Sell: $${inventory[k].sell}</p>
                         </div>
-                        <div class="action-btns">
-                            <button class="btn-small edit-btn" onclick="editItem('${k}')">Edit</button>
-                            <button class="btn-small del-btn" onclick="deleteItem('${k}')">Delete</button>
+                        <div class="item-actions">
+                            <button class="btn-small" style="background:#eff6ff;color:#2563eb" onclick="editItem('${k}')">Edit</button>
+                            <button class="btn-small" style="background:#fef2f2;color:#ef4444" onclick="deleteItem('${k}')">Delete</button>
                         </div>
                     </div>
                 `).join('');
@@ -331,46 +324,43 @@
             document.getElementById('i-buy').value = item.buy;
             document.getElementById('i-sell').value = item.sell;
             document.getElementById('form-title').innerText = "Edit Product";
-            document.getElementById('cancel-btn').classList.remove('hidden');
+            document.getElementById('cancel-edit').classList.remove('hidden');
             tab('add-screen', document.querySelectorAll('.nav-item')[1]);
         }
 
-        function cancelEdit() {
+        function resetForm() {
             editingKey = null;
             document.getElementById('i-name').value = '';
             document.getElementById('i-buy').value = '';
             document.getElementById('i-sell').value = '';
-            document.getElementById('form-title').innerText = "Add Product";
-            document.getElementById('cancel-btn').classList.add('hidden');
+            document.getElementById('form-title').innerText = "Add New Product";
+            document.getElementById('cancel-edit').classList.add('hidden');
         }
 
         async function deleteItem(name) {
-            if(!confirm(`Delete ${name}?`)) return;
+            if(!confirm(`Delete ${name} from inventory?`)) return;
             delete inventory[name];
             const store = await accessDB("readwrite");
             store.put(inventory, "inv");
             renderList();
         }
 
-        // --- REAL TIME LOOP ---
+        // --- AI PREDICTION LOOP ---
         async function loop() {
             if (scanActive && isScanning && classifier.getNumClasses() > 0) {
                 try {
                     const img = await net.infer(document.getElementById('v-scan'), 'conv_preds');
                     const res = await classifier.predictClass(img);
-                    const conf = res.confidences[res.label];
+                    const confidence = res.confidences[res.label];
 
-                    if (conf > 0.85) {
+                    if (confidence > 0.85) {
                         const item = inventory[res.label];
                         if (item) {
                             document.getElementById('d-name').innerText = res.label.toUpperCase();
-                            document.getElementById('d-buy').innerText = item.buy;
-                            document.getElementById('d-sell').innerText = item.sell;
-                            document.getElementById('info-card').classList.add('active');
-                            document.getElementById('status-msg').innerText = "Product Identified!";
+                            document.getElementById('d-buy').innerText = `$${item.buy}`;
+                            document.getElementById('d-sell').innerText = `$${item.sell}`;
+                            document.getElementById('result-card').classList.add('visible');
                         }
-                    } else {
-                        document.getElementById('status-msg').innerText = "Scanning...";
                     }
                 } catch(e) {}
             }
