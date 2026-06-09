@@ -72,62 +72,145 @@
 
     <script>
         if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
-        let classifier, net, inv = JSON.parse(localStorage.getItem('db_v1')) || {};
-        const vScan = document.getElementById('v-scan'), vTrain = document.getElementById('v-train');
 
-        async function init() {
-            classifier = knnClassifier.create();
-            net = await mobilenet.load();
-            document.getElementById('status').innerText = "Ready to Scan";
-            cam(vScan); loop();
-        }
+let classifier, net, inv = JSON.parse(localStorage.getItem('db_v1')) || {};
+const vScan = document.getElementById('v-scan'), vTrain = document.getElementById('v-train');
+let isTraining = false;
 
-        async function cam(v) {
-            const s = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}, audio:false});
-            v.srcObject = s;
-        }
+async function init() {
+    classifier = knnClassifier.create();
+    net = await mobilenet.load();
+    
+    // LOAD SAVED AI DATA
+    const savedModel = localStorage.getItem('ai_brain_v1');
+    if (savedModel) {
+        const dataset = JSON.parse(savedModel);
+        Object.keys(dataset).forEach((key) => {
+            dataset[key] = tf.tensor2d(dataset[key].data, dataset[key].shape);
+        });
+        classifier.setClassifierDataset(dataset);
+        console.log("AI Brain Loaded");
+    }
 
-        function tab(id, el) {
-            document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            document.getElementById(id).classList.remove('hidden');
-            el.classList.add('active');
-            if(id === 'add-screen') cam(vTrain);
-            if(id === 'list-screen') render();
-        }
+    document.getElementById('status').innerText = "Ready to Scan";
+    cam(vScan); 
+    loop();
+}
 
-        const tBtn = document.getElementById('t-btn');
-        tBtn.onmousedown = train; tBtn.ontouchstart = (e) => { e.preventDefault(); train(); };
-        async function train() {
-            const n = document.getElementById('i-name').value;
-            if(!n) return alert("Enter Name");
-            classifier.addExample(await net.infer(vTrain, 'conv_preds'), n);
-        }
+async function cam(v) {
+    try {
+        const s = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" }, 
+            audio: false 
+        });
+        v.srcObject = s;
+    } catch (err) {
+        alert("Camera error: " + err);
+    }
+}
 
-        function save() {
-            const n = document.getElementById('i-name').value;
-            inv[n] = { buy: document.getElementById('i-buy').value, sell: document.getElementById('i-sell').value };
-            localStorage.setItem('db_v1', JSON.stringify(inv));
-            alert("Saved!"); tab('scan-screen', document.querySelector('.nav-item'));
-        }
+function tab(id, el) {
+    document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(id).classList.remove('hidden');
+    el.classList.add('active');
+    if(id === 'add-screen') cam(vTrain);
+    if(id === 'list-screen') render();
+}
 
-        async function loop() {
-            if (classifier.getNumClasses() > 0 && !document.getElementById('scan-screen').classList.contains('hidden')) {
-                const res = await classifier.predictClass(await net.infer(vScan, 'conv_preds'));
-                if (res.confidences[res.label] > 0.85) {
-                    document.getElementById('d-name').innerText = res.label.toUpperCase();
-                    document.getElementById('d-buy').innerText = inv[res.label].buy;
-                    document.getElementById('d-sell').innerText = inv[res.label].sell;
-                    document.getElementById('result').classList.remove('hidden');
-                } else { document.getElementById('result').classList.add('hidden'); }
+// --- IMPROVED TRAINING LOGIC ---
+const tBtn = document.getElementById('t-btn');
+
+const startTraining = (e) => { 
+    e.preventDefault(); 
+    isTraining = true; 
+    doTrain(); 
+};
+const stopTraining = () => { isTraining = false; };
+
+tBtn.onmousedown = startTraining;
+tBtn.onmouseup = stopTraining;
+tBtn.ontouchstart = startTraining;
+tBtn.ontouchend = stopTraining;
+
+async function doTrain() {
+    const name = document.getElementById('i-name').value;
+    if(!name) {
+        isTraining = false;
+        return alert("Please enter a product name first!");
+    }
+
+    if(isTraining) {
+        // Capture frame and add to AI
+        const img = await net.infer(vTrain, 'conv_preds');
+        classifier.addExample(img, name);
+        
+        document.getElementById('status').innerText = `Training: ${name}...`;
+        // Rapidly capture next frame (approx 10 frames per second)
+        setTimeout(doTrain, 100); 
+    } else {
+        document.getElementById('status').innerText = "Training Paused";
+    }
+}
+
+// --- SAVING DATA ---
+function save() {
+    const n = document.getElementById('i-name').value;
+    if(!n) return alert("Enter Name");
+
+    // 1. Save Text Data
+    inv[n] = { 
+        buy: document.getElementById('i-buy').value, 
+        sell: document.getElementById('i-sell').value 
+    };
+    localStorage.setItem('db_v1', JSON.stringify(inv));
+
+    // 2. Save AI Brain (Tensors must be converted to Arrays)
+    const dataset = classifier.getClassifierDataset();
+    const datasetObj = {};
+    Object.keys(dataset).forEach((key) => {
+        datasetObj[key] = {
+            data: dataset[key].dataSync(),
+            shape: dataset[key].shape
+        };
+    });
+    localStorage.setItem('ai_brain_v1', JSON.stringify(datasetObj));
+
+    alert("Product and AI Model Saved!");
+    location.reload(); // Refresh to ensure everything is initialized fresh
+}
+
+// --- SCANNING LOOP ---
+async function loop() {
+    if (classifier.getNumClasses() > 0 && !document.getElementById('scan-screen').classList.contains('hidden')) {
+        const img = await net.infer(vScan, 'conv_preds');
+        const res = await classifier.predictClass(img);
+        
+        if (res.confidences[res.label] > 0.80) { // 80% confidence threshold
+            const product = inv[res.label];
+            if(product) {
+                document.getElementById('d-name').innerText = res.label.toUpperCase();
+                document.getElementById('d-buy').innerText = product.buy;
+                document.getElementById('d-sell').innerText = product.sell;
+                document.getElementById('result').classList.remove('hidden');
+                document.getElementById('status').innerText = "Match Found!";
             }
-            requestAnimationFrame(loop);
+        } else {
+            document.getElementById('result').classList.add('hidden');
+            document.getElementById('status').innerText = "Scanning...";
         }
+    }
+    requestAnimationFrame(loop);
+}
 
-        function render() {
-            document.getElementById('inv-list').innerHTML = Object.keys(inv).map(k => `<div style="padding:10px; border-bottom:1px solid #eee;"><b>${k}</b> - $${inv[k].sell}</div>`).join('');
-        }
-        init();
+function render() {
+    document.getElementById('inv-list').innerHTML = Object.keys(inv).map(k => 
+        `<div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between;">
+            <b>${k}</b> <span>Buy: $${inv[k].buy} | Sell: $${inv[k].sell}</span>
+        </div>`).join('');
+}
+
+init();
     </script>
 </body>
 </html>
