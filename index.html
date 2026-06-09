@@ -51,7 +51,8 @@
     <div id="scan-screen" class="container">
         <div class="card">
             <div class="video-box"><video id="v-scan" autoplay playsinline muted></video></div>
-            <div id="status" style="text-align:center; margin:15px; font-weight:600; color:#64748b;">Ready to Scan</div>
+            <!-- Dynamic Status Messages -->
+            <div id="status" style="text-align:center; margin:15px; font-weight:600; color:#64748b;">Finding subjects to scan</div>
             
             <div id="result" class="price-badge hidden">
                 <div style="color:var(--danger); font-size:12px; font-weight:bold;">BUY: $<span id="d-buy">0</span></div>
@@ -94,8 +95,9 @@
         let classifier, net, inventory = {}, isTraining = false, scanActive = true;
         const vScan = document.getElementById('v-scan');
         const vTrain = document.getElementById('v-train');
+        const statusText = document.getElementById('status');
 
-        // 1. DATABASE SETUP (No Reload needed)
+        // DATABASE SETUP
         const dbName = "ScannerAI_DB", storeName = "MainStore";
         async function accessDB(mode) {
             return new Promise((resolve) => {
@@ -105,7 +107,7 @@
             });
         }
 
-        // 2. INITIALIZE AI ONCE
+        // INITIALIZE AI
         async function init() {
             try {
                 classifier = knnClassifier.create();
@@ -133,7 +135,7 @@
         }
 
         async function startCam(v) {
-            if (v.srcObject) return; // Already running
+            if (v.srcObject) return; 
             try {
                 const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
                 v.srcObject = s;
@@ -153,10 +155,11 @@
 
         function resetScan() {
             document.getElementById('result').classList.add('hidden');
-            document.getElementById('status').innerText = "Scanning...";
+            statusText.innerText = "Finding subjects to scan";
+            statusText.style.color = "#64748b";
         }
 
-        // 3. TRAINING LOGIC
+        // TRAINING LOGIC
         const tBtn = document.getElementById('t-btn');
         const startT = (e) => { 
             e.preventDefault(); 
@@ -177,7 +180,7 @@
             setTimeout(trainLoop, 100);
         }
 
-        // 4. SAVE WITHOUT RELOADING
+        // SAVE LOGIC
         async function saveProduct() {
             const name = document.getElementById('i-name').value;
             const buy = document.getElementById('i-buy').value;
@@ -186,10 +189,8 @@
             if(!name || !buy || !sell) return alert("Fill all fields");
             if(classifier.getNumClasses() === 0) return alert("Hold the green button to train AI first");
 
-            // Update local memory
             inventory[name] = { buy, sell };
             
-            // Save to DB
             const dataset = classifier.getClassifierDataset();
             const brainObj = {};
             Object.keys(dataset).forEach(key => {
@@ -200,34 +201,51 @@
             store.put(inventory, "inv");
             store.put(JSON.stringify(brainObj), "brain");
 
-            alert("Product Saved Successfully!");
-            // Clear inputs for next item
+            alert("Product Saved!");
             document.getElementById('i-name').value = '';
             document.getElementById('i-buy').value = '';
             document.getElementById('i-sell').value = '';
         }
 
-        // 5. SCANNING LOOP
+        // UPDATED SCANNING LOOP
         async function loop() {
-            if (scanActive && classifier.getNumClasses() > 0) {
-                try {
-                    const img = await net.infer(vScan, 'conv_preds');
-                    const res = await classifier.predictClass(img);
-                    
-                    // 0.90 confidence means it's very sure
-                    if (res.confidences[res.label] > 0.90) {
-                        const item = inventory[res.label];
-                        if(item) {
-                            document.getElementById('d-name').innerText = res.label.toUpperCase();
-                            document.getElementById('d-buy').innerText = item.buy;
-                            document.getElementById('d-sell').innerText = item.sell;
-                            document.getElementById('result').classList.remove('hidden');
-                            document.getElementById('status').innerText = "Item Identified!";
+            if (scanActive) {
+                if (classifier.getNumClasses() > 0) {
+                    try {
+                        const img = await net.infer(vScan, 'conv_preds');
+                        const res = await classifier.predictClass(img);
+                        const confidence = res.confidences[res.label];
+
+                        if (confidence > 0.92) {
+                            // 1. MATCH FOUND
+                            const item = inventory[res.label];
+                            if(item) {
+                                document.getElementById('d-name').innerText = res.label.toUpperCase();
+                                document.getElementById('d-buy').innerText = item.buy;
+                                document.getElementById('d-sell').innerText = item.sell;
+                                document.getElementById('result').classList.remove('hidden');
+                                statusText.innerText = "Match Found!";
+                                statusText.style.color = "var(--success)";
+                            }
+                        } 
+                        else if (confidence > 0.40 && confidence <= 0.92) {
+                            // 2. SOMETHING IS THERE BUT NOT RECOGNIZED
+                            document.getElementById('result').classList.add('hidden');
+                            statusText.innerText = "Item not registered";
+                            statusText.style.color = "var(--danger)";
+                        } 
+                        else {
+                            // 3. NOTHING RELEVANT IN SIGHT
+                            document.getElementById('result').classList.add('hidden');
+                            statusText.innerText = "Finding subjects to scan";
+                            statusText.style.color = "#64748b";
                         }
-                    }
-                } catch(e) { console.log("Loop error"); }
+                    } catch(e) { console.log("Loop error"); }
+                } else {
+                    // No products trained yet
+                    statusText.innerText = "No products saved. Go to 'Add' tab.";
+                }
             }
-            // Check every 400ms for better performance
             setTimeout(() => requestAnimationFrame(loop), 400);
         }
 
@@ -245,7 +263,6 @@
         async function deleteItem(name) {
             if(!confirm("Delete " + name + "?")) return;
             delete inventory[name];
-            // Update DB
             const store = await accessDB("readwrite");
             store.put(inventory, "inv");
             renderList();
