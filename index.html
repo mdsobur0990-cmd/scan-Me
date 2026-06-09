@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Scanner AI</title>
+    <title>Pro Scanner AI Ultra</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
@@ -26,80 +26,65 @@
             overflow: hidden; touch-action: manipulation;
         }
 
-        /* Loading Overlay */
+        /* UI Overlays */
         #loading-overlay { position: fixed; inset: 0; background: #fff; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .loader { width: 40px; height: 40px; border: 4px solid var(--border); border-bottom-color: var(--primary); border-radius: 50%; animation: rotation 1s linear infinite; }
+        .loader { width: 45px; height: 45px; border: 5px solid var(--border); border-bottom-color: var(--primary); border-radius: 50%; animation: rotation 1s linear infinite; }
         @keyframes rotation { 0% { transform: rotate(0deg) } 100% { transform: rotate(360deg) } }
 
-        /* Navigation Bar */
-        .nav-bar { position: fixed; bottom: 0; width: 100%; height: 75px; background: #fff; display: flex; border-top: 1px solid var(--border); z-index: 90; }
-        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8; font-weight: 600; cursor: pointer; }
+        /* Nav & Header */
+        .header { background: #fff; padding: 10px; text-align: center; font-weight: 800; border-bottom: 1px solid var(--border); font-size: 15px; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; height: 70px; background: #fff; display: flex; border-top: 1px solid var(--border); z-index: 90; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; color: #94a3b8; font-weight: 700; cursor: pointer; }
         .nav-item.active { color: var(--primary); }
-        .nav-item i { font-size: 20px; margin-bottom: 2px; font-style: normal; }
+        .nav-item i { font-size: 18px; margin-bottom: 2px; font-style: normal; }
 
-        .header { background: #fff; padding: 12px; text-align: center; font-weight: 800; border-bottom: 1px solid var(--border); font-size: 16px; }
-
-        /* Screen Layout */
-        .screen { height: calc(100vh - 140px); overflow-y: auto; padding: 12px; box-sizing: border-box; }
+        /* Screen Layouts */
+        .screen { height: calc(100vh - 135px); overflow-y: auto; padding: 10px; box-sizing: border-box; }
         .hidden { display: none !important; }
 
         /* Video Containers */
-        .video-wrapper { width: 100%; border-radius: 20px; overflow: hidden; background: #000; position: relative; border: 3px solid #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        #v-scan-container { height: 45vh; margin-bottom: 10px; }
-        
-        /* Compact Add Page Camera */
-        #v-train-container { height: 160px; margin: 8px 0; } 
-        #add-screen .card { padding: 12px; }
-        #add-screen h3 { margin: 0 0 8px 0; font-size: 16px; }
+        .video-wrapper { width: 100%; border-radius: 18px; overflow: hidden; background: #000; position: relative; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        #v-scan-container { height: 42vh; margin-bottom: 8px; }
+        #v-train-container { height: 140px; margin: 6px 0; } 
 
         video { width: 100%; height: 100%; object-fit: cover; }
 
-        /* Scan Result Card */
+        /* Result Display */
         #result-card {
-            background: #fff; border-radius: 15px; padding: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.08); border: 1px solid var(--border);
-            text-align: center; transform: translateY(10px); opacity: 0; transition: 0.3s ease;
-            margin-bottom: 80px; /* Space for button */
+            background: #fff; border-radius: 15px; padding: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06); border: 1px solid var(--border);
+            text-align: center; transform: translateY(5px); opacity: 0; transition: 0.2s ease;
         }
         #result-card.visible { transform: translateY(0); opacity: 1; }
-        .price-grid { display: flex; justify-content: space-around; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+        .price-grid { display: flex; justify-content: space-around; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
         .price-item span { font-size: 18px; font-weight: 900; }
 
-        /* Round Floating Scan Button */
-        .scan-trigger-container { 
-            position: absolute; 
-            bottom: 95px; /* Slightly up from menu bar */
-            left: 0; right: 0; 
-            display: flex; justify-content: center; 
-            z-index: 100; 
-            pointer-events: none;
-        }
+        /* Round Floating Button */
+        .scan-trigger-container { position: absolute; bottom: 85px; left: 0; right: 0; display: flex; justify-content: center; z-index: 100; pointer-events: none; }
         .btn-round-scan {
-            width: 75px; height: 75px; border-radius: 50%; background: var(--primary);
-            border: 5px solid #fff; box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
-            color: #fff; font-weight: 800; font-size: 13px; cursor: pointer;
+            width: 70px; height: 70px; border-radius: 50%; background: var(--primary);
+            border: 4px solid #fff; box-shadow: 0 5px 15px rgba(37, 99, 235, 0.4);
+            color: #fff; font-weight: 800; font-size: 12px; cursor: pointer;
             display: flex; align-items: center; justify-content: center; 
             transition: 0.1s; pointer-events: auto;
         }
         .btn-round-scan:active { transform: scale(0.85); background: #1d4ed8; }
 
-        /* Forms & Cards */
-        .card { background: #fff; border-radius: 20px; padding: 15px; border: 1px solid var(--border); }
-        input { width: 100%; padding: 10px; margin: 4px 0; border: 1px solid var(--border); border-radius: 10px; background: #f1f5f9; font-size: 14px; box-sizing: border-box; outline: none; }
-        .btn { width: 100%; padding: 12px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; margin-top: 6px; font-size: 14px; }
+        /* Compact Form Styling */
+        .card { background: #fff; border-radius: 15px; padding: 12px; border: 1px solid var(--border); }
+        input { width: 100%; padding: 10px; margin: 3px 0; border: 1px solid var(--border); border-radius: 10px; background: #f1f5f9; font-size: 14px; box-sizing: border-box; outline: none; }
+        .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; margin-top: 5px; font-size: 14px; }
         .btn-primary { background: #1e293b; color: #fff; }
         .btn-train { background: var(--primary); color: #fff; }
-        
-        .item-row { background: #fff; padding: 12px; border-radius: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); }
-        .item-actions { display: flex; gap: 5px; }
-        .btn-small { padding: 6px 10px; border-radius: 8px; font-size: 11px; border: none; font-weight: bold; cursor: pointer; }
+
+        .item-row { background: #fff; padding: 10px; border-radius: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); }
     </style>
 </head>
 <body>
 
     <div id="loading-overlay">
         <div class="loader"></div>
-        <p style="margin-top:15px; font-weight:600; color:#64748b;">Initializing AI...</p>
+        <p style="margin-top:15px; font-weight:700; color:#475569; font-size: 13px;">OPTIMIZING AI VISION...</p>
     </div>
 
     <div class="header">PRO SCANNER AI</div>
@@ -111,14 +96,14 @@
         </div>
 
         <div id="result-card">
-            <div id="d-name" style="font-weight: 800; color: var(--primary); font-size: 18px;">SCANNING...</div>
+            <div id="d-name" style="font-weight: 800; color: var(--primary); font-size: 16px;">READY TO SCAN</div>
             <div class="price-grid">
                 <div class="price-item">
-                    <small style="color:#64748b; font-size:10px; display:block;">BUY</small>
+                    <small style="color:#94a3b8; font-size:9px; display:block; font-weight:bold;">BUY</small>
                     <span id="d-buy" style="color: var(--danger);">$0</span>
                 </div>
-                <div class="price-item" style="border-left: 1px solid var(--border); padding-left: 15px;">
-                    <small style="color:#64748b; font-size:10px; display:block;">SELL</small>
+                <div class="price-item" style="border-left: 1px solid var(--border); padding-left: 10px;">
+                    <small style="color:#94a3b8; font-size:9px; display:block; font-weight:bold;">SELL</small>
                     <span id="d-sell" style="color: var(--success);">$0</span>
                 </div>
             </div>
@@ -129,14 +114,14 @@
         </div>
     </div>
 
-    <!-- ADD PAGE (Compact) -->
+    <!-- ADD PAGE (Compact Single Screen) -->
     <div id="add-screen" class="screen hidden">
         <div class="card">
-            <h3 id="form-title">Add Product</h3>
+            <h3 style="margin: 0 0 5px 0; font-size: 14px;">Product Setup</h3>
             <input type="text" id="i-name" placeholder="Product Name">
-            <div style="display:flex; gap:8px">
-                <input type="number" id="i-buy" placeholder="Buy Price $">
-                <input type="number" id="i-sell" placeholder="Sell Price $">
+            <div style="display:flex; gap:5px">
+                <input type="number" id="i-buy" placeholder="Buy $">
+                <input type="number" id="i-sell" placeholder="Sell $">
             </div>
 
             <div class="video-wrapper" id="v-train-container">
@@ -144,14 +129,14 @@
             </div>
             
             <button class="btn btn-train" id="t-btn">HOLD TO TRAIN</button>
-            <button class="btn btn-primary" onclick="saveProduct()">SAVE TO INVENTORY</button>
+            <button class="btn btn-primary" onclick="saveProduct()">SAVE PRODUCT</button>
             <button id="cancel-edit" class="btn hidden" onclick="resetForm()" style="background:#94a3b8; color:#fff">CANCEL</button>
         </div>
     </div>
 
     <!-- ITEMS PAGE -->
     <div id="list-screen" class="screen hidden">
-        <h3 style="margin:0 0 10px 5px">Inventory</h3>
+        <h3 style="margin:0 0 8px 5px; font-size: 16px;">Inventory</h3>
         <div id="inv-list"></div>
     </div>
 
@@ -164,15 +149,14 @@
 
     <script>
         let classifier, net, inventory = {}, isTraining = false, isScanning = false, scanActive = true;
-        let editingKey = null;
-
-        const dbName = "ProScanner_Final_V4", storeName = "DataStore";
+        let predictionHistory = []; // For temporal smoothing
+        const HISTORY_SIZE = 5;
 
         async function accessDB(mode) {
             return new Promise((resolve) => {
-                const request = indexedDB.open(dbName, 1);
-                request.onupgradeneeded = e => e.target.result.createObjectStore(storeName);
-                request.onsuccess = e => resolve(e.target.result.transaction(storeName, mode).objectStore(storeName));
+                const request = indexedDB.open("ScannerUltra_DB", 1);
+                request.onupgradeneeded = e => e.target.result.createObjectStore("Data");
+                request.onsuccess = e => resolve(e.target.result.transaction("Data", mode).objectStore("Data"));
             });
         }
 
@@ -183,7 +167,6 @@
                 const store = await accessDB("readonly");
                 const savedInv = await new Promise(r => store.get("inv").onsuccess = e => r(e.target.result));
                 const savedBrain = await new Promise(r => store.get("brain").onsuccess = e => r(e.target.result));
-                
                 if (savedInv) inventory = savedInv;
                 if (savedBrain) {
                     const dataset = JSON.parse(savedBrain);
@@ -195,15 +178,18 @@
                 document.getElementById('loading-overlay').style.display = 'none';
                 startCam(document.getElementById('v-scan'));
                 loop();
-            } catch (e) { alert("Camera access required for AI."); }
+            } catch (e) { alert("Camera access needed."); }
         }
 
         async function startCam(v) {
             if (v.srcObject) return;
             try {
-                const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+                const s = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", width: 640, height: 480 }, 
+                    audio: false 
+                });
                 v.srcObject = s;
-            } catch (e) { console.error("Camera error"); }
+            } catch (e) { console.error("Camera fail"); }
         }
 
         function tab(id, el) {
@@ -217,13 +203,15 @@
             if(id === 'list-screen') renderList();
         }
 
-        function closeResult() { document.getElementById('result-card').classList.remove('visible'); }
+        function closeResult() { 
+            document.getElementById('result-card').classList.remove('visible'); 
+            predictionHistory = [];
+        }
 
-        // --- SCAN LOGIC & HAPTIC VIBRATION ---
+        // --- SCAN LOGIC & VIBRATION ---
         const scanBtn = document.getElementById('hold-scan-btn');
         const scanStart = (e) => { 
             e.preventDefault(); 
-            // VIBRATION TRIGGER
             if (navigator.vibrate) navigator.vibrate(50); 
             isScanning = true; 
             closeResult(); 
@@ -235,13 +223,13 @@
         window.addEventListener('mouseup', scanEnd);
         window.addEventListener('touchend', scanEnd);
 
-        // --- TRAINING LOGIC ---
+        // --- ACCURATE TRAINING ---
         const tBtn = document.getElementById('t-btn');
         const trainStart = (e) => {
             e.preventDefault();
-            if(!document.getElementById('i-name').value) return alert("Enter product name");
+            if(!document.getElementById('i-name').value) return alert("Enter name");
             isTraining = true;
-            tBtn.innerText = "TRAINING...";
+            tBtn.innerText = "TRAINING (MOVE ITEM)";
             trainLoop();
         };
         const trainEnd = () => { isTraining = false; tBtn.innerText = "HOLD TO TRAIN"; };
@@ -252,70 +240,55 @@
 
         async function trainLoop() {
             if(!isTraining) return;
+            // Higher inference rate for training
             const img = await net.infer(document.getElementById('v-train'), 'conv_preds');
             classifier.addExample(img, document.getElementById('i-name').value);
-            setTimeout(trainLoop, 100);
+            setTimeout(trainLoop, 60); 
         }
 
         async function saveProduct() {
             const name = document.getElementById('i-name').value.trim();
             const buy = document.getElementById('i-buy').value;
             const sell = document.getElementById('i-sell').value;
-            if(!name || !buy || !sell) return alert("Fill all fields");
-            if(classifier.getNumClasses() === 0) return alert("Train AI first");
-            
+            if(!name || !buy || !sell) return alert("Missing fields");
             inventory[name] = { buy, sell };
             const store = await accessDB("readwrite");
             store.put(inventory, "inv");
-            
             const dataset = classifier.getClassifierDataset();
             const brainObj = {};
-            Object.keys(dataset).forEach(key => { 
-                brainObj[key] = { data: Array.from(dataset[key].dataSync()), shape: dataset[key].shape }; 
-            });
+            Object.keys(dataset).forEach(key => { brainObj[key] = { data: Array.from(dataset[key].dataSync()), shape: dataset[key].shape }; });
             store.put(JSON.stringify(brainObj), "brain");
-            
-            alert("Product Saved!"); 
-            resetForm();
+            alert("Saved!"); resetForm();
             tab('list-screen', document.querySelectorAll('.nav-item')[2]);
         }
 
         function renderList() {
             const list = document.getElementById('inv-list');
             const items = Object.keys(inventory);
-            list.innerHTML = items.length === 0 ? '<p style="text-align:center;color:#94a3b8;margin-top:20px">Empty</p>' :
+            list.innerHTML = items.length === 0 ? '<p style="text-align:center;color:#94a3b8;font-size:12px">No items</p>' :
                 items.map(k => `
                     <div class="item-row">
+                        <div style="font-size:14px"><b>${k}</b><br><small>$${inventory[k].buy}/$${inventory[k].sell}</small></div>
                         <div>
-                            <b>${k}</b><br>
-                            <small>$${inventory[k].buy} / $${inventory[k].sell}</small>
-                        </div>
-                        <div class="item-actions">
-                            <button class="btn-small" style="background:#eff6ff;color:#2563eb" onclick="editItem('${k}')">Edit</button>
-                            <button class="btn-small" style="background:#fef2f2;color:#ef4444" onclick="deleteItem('${k}')">Del</button>
+                            <button style="background:#eff6ff;color:#2563eb;border:none;padding:5px 10px;border-radius:5px" onclick="editItem('${k}')">Edit</button>
+                            <button style="background:#fef2f2;color:#ef4444;border:none;padding:5px 10px;border-radius:5px" onclick="deleteItem('${k}')">Del</button>
                         </div>
                     </div>
                 `).join('');
         }
 
         function editItem(name) {
-            editingKey = name;
             const item = inventory[name];
             document.getElementById('i-name').value = name;
             document.getElementById('i-buy').value = item.buy;
             document.getElementById('i-sell').value = item.sell;
-            document.getElementById('form-title').innerText = "Edit Item";
-            document.getElementById('cancel-edit').classList.remove('hidden');
             tab('add-screen', document.querySelectorAll('.nav-item')[1]);
         }
 
         function resetForm() {
-            editingKey = null;
             document.getElementById('i-name').value = '';
             document.getElementById('i-buy').value = '';
             document.getElementById('i-sell').value = '';
-            document.getElementById('form-title').innerText = "Add Product";
-            document.getElementById('cancel-edit').classList.add('hidden');
         }
 
         async function deleteItem(name) {
@@ -326,14 +299,25 @@
             renderList();
         }
 
+        // --- ACCURATE REAL-TIME LOOP ---
         async function loop() {
             if (scanActive && isScanning && classifier.getNumClasses() > 0) {
                 try {
                     const img = await net.infer(document.getElementById('v-scan'), 'conv_preds');
                     const res = await classifier.predictClass(img);
+                    
+                    // Add result to history for temporal smoothing
+                    predictionHistory.push(res.label);
+                    if (predictionHistory.length > HISTORY_SIZE) predictionHistory.shift();
+
+                    // Only confirm if the last X frames largely agree
+                    const mode = predictionHistory.reduce((a,b,i,arr) => 
+                        (arr.filter(v => v === a).length >= arr.filter(v => v === b).length ? a : b)
+                    );
+
                     const confidence = res.confidences[res.label];
 
-                    if (confidence > 0.85) {
+                    if (confidence > 0.80 && mode === res.label) {
                         const item = inventory[res.label];
                         if (item) {
                             document.getElementById('d-name').innerText = res.label.toUpperCase();
@@ -342,7 +326,7 @@
                             document.getElementById('result-card').classList.add('visible');
                         }
                     } else {
-                        document.getElementById('d-name').innerText = "SEARCHING...";
+                        document.getElementById('d-name').innerText = "IDENTIFYING...";
                     }
                 } catch(e) {}
             }
