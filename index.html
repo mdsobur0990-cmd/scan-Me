@@ -4,36 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pro Scanner AI</title>
+    <link rel="manifest" href="manifest.json">
     
-    <link rel="manifest" href="./manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-    <!-- Load AI Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier"></script>
+    <!-- Scripts (Stable Versions) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier@1.2.4"></script>
     
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; --success: #22c55e; --danger: #ef4444; }
-        body { font-family: -apple-system, sans-serif; margin: 0; background: var(--bg); padding-bottom: 90px; overflow-x: hidden; }
+        body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: var(--bg); padding-bottom: 90px; overflow-x: hidden; touch-action: manipulation; }
         .header { background: var(--card); padding: 18px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); font-weight: 800; position: sticky; top: 0; z-index: 100; }
         .container { padding: 15px; max-width: 500px; margin: auto; }
-        .video-box { width: 100%; border-radius: 20px; overflow: hidden; background: #000; line-height: 0; box-shadow: 0 10px 15px rgba(0,0,0,0.1); position: relative; }
-        video { width: 100%; height: auto; transform: scaleX(1); } 
+        .video-box { width: 100%; border-radius: 20px; overflow: hidden; background: #000; line-height: 0; box-shadow: 0 10px 15px rgba(0,0,0,0.1); position: relative; aspect-ratio: 4/3; }
+        video { width: 100%; height: 100%; object-fit: cover; } 
         .card { background: var(--card); padding: 20px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
         input { width: 100%; padding: 14px; margin: 8px 0; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 16px; box-sizing: border-box; }
-        button { width: 100%; background: var(--primary); color: white; border: none; padding: 16px; border-radius: 14px; font-weight: 700; cursor: pointer; margin: 8px 0; }
+        button { width: 100%; background: var(--primary); color: white; border: none; padding: 16px; border-radius: 14px; font-weight: 700; cursor: pointer; margin: 8px 0; transition: 0.2s; }
+        button:active { transform: scale(0.98); opacity: 0.9; }
         .btn-train { background: var(--success); user-select: none; -webkit-user-select: none; }
-        .btn-train.active { background: #16a34a; transform: scale(0.95); }
+        .btn-train.active { background: #16a34a; transform: scale(0.95); animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        
         .price-badge { background: #f0f9ff; padding: 16px; border-radius: 15px; margin-top: 15px; border-left: 6px solid var(--success); animation: slideIn 0.3s ease; }
         .nav-bar { position: fixed; bottom: 0; width: 100%; background: white; display: flex; padding: 10px 0 25px 0; border-top: 1px solid #e2e8f0; z-index: 100; }
         .nav-item { text-align: center; font-size: 11px; color: #94a3b8; flex: 1; cursor: pointer; }
         .nav-item.active { color: var(--primary); font-weight: bold; }
-        .hidden { display: none; }
+        .hidden { display: none !important; }
         .inv-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #f1f5f9; }
         .del-btn { background: #fee2e2; color: var(--danger); padding: 8px 12px; border-radius: 8px; font-size: 11px; width: auto; margin: 0; }
-        #loading-overlay { position: fixed; inset: 0; background: white; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        
+        #loading-overlay { position: fixed; inset: 0; background: white; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
@@ -50,11 +51,13 @@
     <div id="scan-screen" class="container">
         <div class="card">
             <div class="video-box"><video id="v-scan" autoplay playsinline muted></video></div>
-            <div id="status" style="text-align:center; margin:15px; font-weight:600; color:#64748b;">Ready</div>
+            <div id="status" style="text-align:center; margin:15px; font-weight:600; color:#64748b;">Ready to Scan</div>
+            
             <div id="result" class="price-badge hidden">
                 <div style="color:var(--danger); font-size:12px; font-weight:bold;">BUY: $<span id="d-buy">0</span></div>
-                <div style="color:var(--success); font-size:26px; font-weight:900;">SELL: $<span id="d-sell">0</span></div>
-                <div id="d-name" style="font-size:16px; font-weight:bold; color:#1e293b;">NAME</div>
+                <div style="color:var(--success); font-size:28px; font-weight:900;">SELL: $<span id="d-sell">0</span></div>
+                <div id="d-name" style="font-size:18px; font-weight:bold; color:#1e293b;">NAME</div>
+                <button onclick="resetScan()" style="padding:8px; font-size:12px; margin-top:10px; background:#64748b;">Clear Result</button>
             </div>
         </div>
     </div>
@@ -62,13 +65,14 @@
     <!-- ADD SCREEN -->
     <div id="add-screen" class="container hidden">
         <div class="card">
-            <h3>Add Product</h3>
+            <h3>Add New Product</h3>
+            <p style="font-size: 12px; color: #64748b;">1. Enter details. 2. Hold green button while moving camera around product.</p>
             <input type="text" id="i-name" placeholder="Product Name">
             <input type="number" id="i-buy" placeholder="Buy Price $">
             <input type="number" id="i-sell" placeholder="Sell Price $">
-            <div class="video-box" style="height:150px; margin:10px 0;"><video id="v-train" autoplay playsinline muted></video></div>
+            <div class="video-box" style="height:180px; margin:10px 0;"><video id="v-train" autoplay playsinline muted></video></div>
             <button class="btn-train" id="t-btn">HOLD TO TRAIN AI</button>
-            <button onclick="saveProduct()" style="background:#1e293b;">SAVE EVERYTHING</button>
+            <button id="save-btn" onclick="saveProduct()" style="background:#1e293b;">SAVE PRODUCT</button>
         </div>
     </div>
 
@@ -87,15 +91,11 @@
     </div>
 
     <script>
-        // 1. REGISTER SERVICE WORKER FOR OFFLINE USE
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').catch(err => console.log("SW Speed Bump", err));
-        }
-
         let classifier, net, inventory = {}, isTraining = false, scanActive = true;
-        const vScan = document.getElementById('v-scan'), vTrain = document.getElementById('v-train');
+        const vScan = document.getElementById('v-scan');
+        const vTrain = document.getElementById('v-train');
 
-        // 2. INDEXED DB LOGIC (THE BRAIN)
+        // 1. DATABASE SETUP (No Reload needed)
         const dbName = "ScannerAI_DB", storeName = "MainStore";
         async function accessDB(mode) {
             return new Promise((resolve) => {
@@ -105,11 +105,11 @@
             });
         }
 
-        // 3. INITIALIZE AI
+        // 2. INITIALIZE AI ONCE
         async function init() {
             try {
                 classifier = knnClassifier.create();
-                net = await mobilenet.load(); // This gets cached by Service Worker
+                net = await mobilenet.load();
                 
                 const store = await accessDB("readonly");
                 const savedInv = await new Promise(r => store.get("inv").onsuccess = e => r(e.target.result));
@@ -128,15 +128,16 @@
                 startCam(vScan);
                 loop();
             } catch (e) {
-                alert("Please connect to internet for the first load.");
+                document.getElementById('load-status').innerText = "Please refresh and allow camera.";
             }
         }
 
         async function startCam(v) {
+            if (v.srcObject) return; // Already running
             try {
                 const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
                 v.srcObject = s;
-            } catch (e) { alert("Camera error: " + e); }
+            } catch (e) { alert("Camera Error"); }
         }
 
         function tab(id, el) {
@@ -147,11 +148,23 @@
             el.classList.add('active');
             if(id === 'add-screen') startCam(vTrain);
             if(id === 'list-screen') renderList();
+            if(id === 'scan-screen') { resetScan(); startCam(vScan); }
         }
 
-        // 4. TRAINING LOGIC
+        function resetScan() {
+            document.getElementById('result').classList.add('hidden');
+            document.getElementById('status').innerText = "Scanning...";
+        }
+
+        // 3. TRAINING LOGIC
         const tBtn = document.getElementById('t-btn');
-        const startT = (e) => { e.preventDefault(); if(!document.getElementById('i-name').value) return alert("Enter name"); isTraining = true; tBtn.classList.add('active'); trainLoop(); };
+        const startT = (e) => { 
+            e.preventDefault(); 
+            if(!document.getElementById('i-name').value) return alert("Enter name first"); 
+            isTraining = true; 
+            tBtn.classList.add('active'); 
+            trainLoop(); 
+        };
         const stopT = () => { isTraining = false; tBtn.classList.remove('active'); };
         
         tBtn.onmousedown = startT; tBtn.onmouseup = stopT;
@@ -164,10 +177,19 @@
             setTimeout(trainLoop, 100);
         }
 
+        // 4. SAVE WITHOUT RELOADING
         async function saveProduct() {
             const name = document.getElementById('i-name').value;
-            inventory[name] = { buy: document.getElementById('i-buy').value, sell: document.getElementById('i-sell').value };
+            const buy = document.getElementById('i-buy').value;
+            const sell = document.getElementById('i-sell').value;
             
+            if(!name || !buy || !sell) return alert("Fill all fields");
+            if(classifier.getNumClasses() === 0) return alert("Hold the green button to train AI first");
+
+            // Update local memory
+            inventory[name] = { buy, sell };
+            
+            // Save to DB
             const dataset = classifier.getClassifierDataset();
             const brainObj = {};
             Object.keys(dataset).forEach(key => {
@@ -177,63 +199,55 @@
             const store = await accessDB("readwrite");
             store.put(inventory, "inv");
             store.put(JSON.stringify(brainObj), "brain");
-            alert("Product and AI Saved Offline!");
-            location.reload();
+
+            alert("Product Saved Successfully!");
+            // Clear inputs for next item
+            document.getElementById('i-name').value = '';
+            document.getElementById('i-buy').value = '';
+            document.getElementById('i-sell').value = '';
         }
 
-        // 5. SCANNING LOOP (Throttled for speed)
+        // 5. SCANNING LOOP
         async function loop() {
             if (scanActive && classifier.getNumClasses() > 0) {
-                const img = await net.infer(vScan, 'conv_preds');
-                const res = await classifier.predictClass(img);
-                if (res.confidences[res.label] > 0.85) {
-                    const item = inventory[res.label];
-                    if(item) {
-                        document.getElementById('d-name').innerText = res.label.toUpperCase();
-                        document.getElementById('d-buy').innerText = item.buy;
-                        document.getElementById('d-sell').innerText = item.sell;
-                        document.getElementById('result').classList.remove('hidden');
-                        document.getElementById('status').innerText = "Match Found!";
+                try {
+                    const img = await net.infer(vScan, 'conv_preds');
+                    const res = await classifier.predictClass(img);
+                    
+                    // 0.90 confidence means it's very sure
+                    if (res.confidences[res.label] > 0.90) {
+                        const item = inventory[res.label];
+                        if(item) {
+                            document.getElementById('d-name').innerText = res.label.toUpperCase();
+                            document.getElementById('d-buy').innerText = item.buy;
+                            document.getElementById('d-sell').innerText = item.sell;
+                            document.getElementById('result').classList.remove('hidden');
+                            document.getElementById('status').innerText = "Item Identified!";
+                        }
                     }
-                } else {
-                    document.getElementById('result').classList.add('hidden');
-                    document.getElementById('status').innerText = "Scanning...";
-                }
+                } catch(e) { console.log("Loop error"); }
             }
-            setTimeout(() => requestAnimationFrame(loop), 300);
+            // Check every 400ms for better performance
+            setTimeout(() => requestAnimationFrame(loop), 400);
         }
 
-        // 6. EDIT/DELETE LOGIC
         function renderList() {
             const list = document.getElementById('inv-list');
-            list.innerHTML = Object.keys(inventory).map(k => `
-                <div class="inv-item">
-                    <div><b>${k}</b><br><small>$${inventory[k].buy} -> $${inventory[k].sell}</small></div>
-                    <button class="del-btn" onclick="deleteItem('${k}')">Delete</button>
-                </div>
-            `).join('');
+            list.innerHTML = Object.keys(inventory).length === 0 ? '<p>No items saved.</p>' : 
+                Object.keys(inventory).map(k => `
+                    <div class="inv-item">
+                        <div><b>${k}</b><br><small>$${inventory[k].buy} (Buy) / $${inventory[k].sell} (Sell)</small></div>
+                        <button class="del-btn" onclick="deleteItem('${k}')">Remove</button>
+                    </div>
+                `).join('');
         }
 
         async function deleteItem(name) {
-            if(!confirm("Delete this item?")) return;
+            if(!confirm("Delete " + name + "?")) return;
             delete inventory[name];
-            const dataset = classifier.getClassifierDataset();
-            if(dataset[name]) {
-                dataset[name].dispose();
-                delete dataset[name];
-            }
-            // Clear and rebuild classifier
-            classifier.setClassifierDataset(dataset);
-            
-            // Save updated state
+            // Update DB
             const store = await accessDB("readwrite");
             store.put(inventory, "inv");
-            
-            const brainObj = {};
-            Object.keys(dataset).forEach(key => {
-                brainObj[key] = { data: Array.from(dataset[key].dataSync()), shape: dataset[key].shape };
-            });
-            store.put(JSON.stringify(brainObj), "brain");
             renderList();
         }
 
@@ -241,4 +255,3 @@
     </script>
 </body>
 </html>
-
