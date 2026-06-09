@@ -49,4 +49,185 @@
         .scan-trigger-container { position: absolute; bottom: 85px; left: 0; right: 0; display: flex; justify-content: center; z-index: 100; pointer-events: none; }
         .btn-round-scan { width: 70px; height: 70px; border-radius: 50%; background: var(--primary); border: 4px solid #fff; box-shadow: 0 5px 15px rgba(37, 99, 235, 0.4); color: #fff; font-weight: 800; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.1s; pointer-events: auto; }
         .btn-round-scan:active { transform: scale(0.85); background: #1d4ed8; }
-        .c
+        .card { background: #fff; border-radius: 15px; padding: 12px; border: 1px solid var(--border); }
+        input { width: 100%; padding: 10px; margin: 3px 0; border: 1px solid var(--border); border-radius: 10px; background: #f1f5f9; font-size: 14px; box-sizing: border-box; outline: none; }
+        .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; margin-top: 5px; font-size: 14px; }
+        .btn-primary { background: #1e293b; color: #fff; }
+        .btn-train { background: var(--primary); color: #fff; }
+        .item-row { background: #fff; padding: 10px; border-radius: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); }
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <div class="loader"></div>
+        <p style="margin-top:15px; font-weight:700; color:#475569; font-size: 13px;">LOADING AI MODELS...</p>
+    </div>
+
+    <div class="header">PRO SCANNER AI</div>
+
+    <div id="scan-screen" class="screen">
+        <div class="video-wrapper" id="v-scan-container"><video id="v-scan" autoplay playsinline muted></video></div>
+        <div id="result-card">
+            <div id="d-name" style="font-weight: 800; color: var(--primary); font-size: 16px;">READY TO SCAN</div>
+            <div class="price-grid">
+                <div class="price-item"><small style="color:#94a3b8; font-size:9px; display:block; font-weight:bold;">BUY</small><span id="d-buy" style="color: var(--danger);">$0</span></div>
+                <div class="price-item" style="border-left:1px solid var(--border); padding-left:10px;"><small style="color:#94a3b8; font-size:9px; display:block; font-weight:bold;">SELL</small><span id="d-sell" style="color: var(--success);">$0</span></div>
+            </div>
+        </div>
+        <div class="scan-trigger-container"><button class="btn-round-scan" id="hold-scan-btn">SCAN</button></div>
+    </div>
+
+    <div id="add-screen" class="screen hidden">
+        <div class="card">
+            <input type="text" id="i-name" placeholder="Product Name">
+            <div style="display:flex; gap:5px"><input type="number" id="i-buy" placeholder="Buy $"><input type="number" id="i-sell" placeholder="Sell $"></div>
+            <div class="video-wrapper" id="v-train-container"><video id="v-train" autoplay playsinline muted></video></div>
+            <button class="btn btn-train" id="t-btn">HOLD TO TRAIN</button>
+            <button class="btn btn-primary" onclick="saveProduct()">SAVE PRODUCT</button>
+        </div>
+    </div>
+
+    <div id="list-screen" class="screen hidden">
+        <h3 style="margin:0 0 8px 5px; font-size: 16px;">Inventory</h3>
+        <div id="inv-list"></div>
+    </div>
+
+    <div class="nav-bar">
+        <div class="nav-item active" onclick="tab('scan-screen', this)"><i>📷</i><span>Scan</span></div>
+        <div class="nav-item" onclick="tab('add-screen', this)"><i>➕</i><span>Add</span></div>
+        <div class="nav-item" onclick="tab('list-screen', this)"><i>📦</i><span>Items</span></div>
+    </div>
+
+    <script>
+        let classifier, net, inventory = {}, isTraining = false, isScanning = false, scanActive = true;
+        let predictionHistory = [];
+        const HISTORY_SIZE = 5;
+
+        async function accessDB(mode) {
+            return new Promise((resolve) => {
+                const request = indexedDB.open("ScannerUltra_DB", 1);
+                request.onupgradeneeded = e => e.target.result.createObjectStore("Data");
+                request.onsuccess = e => resolve(e.target.result.transaction("Data", mode).objectStore("Data"));
+            });
+        }
+
+        async function init() {
+            try {
+                classifier = knnClassifier.create();
+                net = await mobilenet.load();
+                const store = await accessDB("readonly");
+                const savedInv = await new Promise(r => store.get("inv").onsuccess = e => r(e.target.result));
+                const savedBrain = await new Promise(r => store.get("brain").onsuccess = e => r(e.target.result));
+                if (savedInv) inventory = savedInv;
+                if (savedBrain) {
+                    const dataset = JSON.parse(savedBrain);
+                    Object.keys(dataset).forEach(key => { 
+                        dataset[key] = tf.tensor2d(dataset[key].data, dataset[key].shape); 
+                    });
+                    classifier.setClassifierDataset(dataset);
+                }
+                document.getElementById('loading-overlay').style.display = 'none';
+                startCam(document.getElementById('v-scan'));
+                loop();
+            } catch (e) { alert("Camera Error: " + e); }
+        }
+
+        async function startCam(v) {
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+                v.srcObject = s;
+            } catch (e) { console.error(e); }
+        }
+
+        function tab(id, el) {
+            scanActive = (id === 'scan-screen');
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(id).classList.remove('hidden');
+            el.classList.add('active');
+            if(id === 'add-screen') startCam(document.getElementById('v-train'));
+            if(id === 'scan-screen') startCam(document.getElementById('v-scan'));
+            if(id === 'list-screen') renderList();
+        }
+
+        const scanBtn = document.getElementById('hold-scan-btn');
+        const scanStart = (e) => { e.preventDefault(); if (navigator.vibrate) navigator.vibrate(50); isScanning = true; };
+        const scanEnd = () => { isScanning = false; document.getElementById('result-card').classList.remove('visible'); };
+        scanBtn.addEventListener('touchstart', scanStart);
+        window.addEventListener('touchend', scanEnd);
+        scanBtn.addEventListener('mousedown', scanStart);
+        window.addEventListener('mouseup', scanEnd);
+
+        const tBtn = document.getElementById('t-btn');
+        const trainStart = (e) => {
+            e.preventDefault();
+            if(!document.getElementById('i-name').value) return alert("Enter name");
+            isTraining = true;
+            tBtn.innerText = "TRAINING...";
+            trainLoop();
+        };
+        const trainEnd = () => { isTraining = false; tBtn.innerText = "HOLD TO TRAIN"; };
+        tBtn.addEventListener('touchstart', trainStart);
+        window.addEventListener('touchend', trainEnd);
+
+        async function trainLoop() {
+            if(!isTraining) return;
+            const img = await net.infer(document.getElementById('v-train'), 'conv_preds');
+            classifier.addExample(img, document.getElementById('i-name').value);
+            setTimeout(trainLoop, 100); 
+        }
+
+        async function saveProduct() {
+            const name = document.getElementById('i-name').value.trim();
+            const buy = document.getElementById('i-buy').value;
+            const sell = document.getElementById('i-sell').value;
+            if(!name || !buy || !sell) return alert("Missing info");
+            inventory[name] = { buy, sell };
+            const store = await accessDB("readwrite");
+            store.put(inventory, "inv");
+            const dataset = classifier.getClassifierDataset();
+            const brainObj = {};
+            Object.keys(dataset).forEach(key => { brainObj[key] = { data: Array.from(dataset[key].dataSync()), shape: dataset[key].shape }; });
+            store.put(JSON.stringify(brainObj), "brain");
+            alert("Saved!");
+            document.getElementById('i-name').value = '';
+        }
+
+        function renderList() {
+            const items = Object.keys(inventory);
+            document.getElementById('inv-list').innerHTML = items.map(k => `
+                <div class="item-row">
+                    <div><b>${k}</b><br><small>$${inventory[k].buy}/$${inventory[k].sell}</small></div>
+                    <button style="color:red;border:none;background:none" onclick="deleteItem('${k}')">Delete</button>
+                </div>
+            `).join('');
+        }
+
+        async function deleteItem(name) {
+            delete inventory[name];
+            const store = await accessDB("readwrite");
+            store.put(inventory, "inv");
+            renderList();
+        }
+
+        async function loop() {
+            if (scanActive && isScanning && classifier.getNumClasses() > 0) {
+                try {
+                    const img = await net.infer(document.getElementById('v-scan'), 'conv_preds');
+                    const res = await classifier.predictClass(img);
+                    if (res.confidences[res.label] > 0.85) {
+                        const item = inventory[res.label];
+                        document.getElementById('d-name').innerText = res.label.toUpperCase();
+                        document.getElementById('d-buy').innerText = `$${item.buy}`;
+                        document.getElementById('d-sell').innerText = `$${item.sell}`;
+                        document.getElementById('result-card').classList.add('visible');
+                    }
+                } catch(e) {}
+            }
+            requestAnimationFrame(loop);
+        }
+        init();
+    </script>
+</body>
+</html>
